@@ -59,7 +59,7 @@ def get_available_tenants() -> list:
     
     tenants_dir = Path("config/tenants")
     tenants = []
-    
+
     if not tenants_dir.exists():
         return tenants
     
@@ -71,7 +71,7 @@ def get_available_tenants() -> list:
                     tenants.append(tenant_config["tenant_id"])
         except Exception as e:
             print(f"Error leyendo {yaml_file}: {e}")
-    
+
     return tenants
 
 
