@@ -1,0 +1,21 @@
+# config/base.yaml - Configuración base compartida
+
+execution:
+  start_date: "2025-03-01"
+  end_date: "2025-03-31"
+  tenant: "sv"
+  fail_fast: false
+
+quality:
+  fail_on_critical: true
+
+paths:
+  raw: "data/raw"
+  bronze: "data/bronze"
+  silver: "data/silver"
+  gold: "data/gold"
+  quarantine_root: "data"
+  quality_logs: "data/shared/quality_logs"
+
+logging:
+  level: "INFO"
