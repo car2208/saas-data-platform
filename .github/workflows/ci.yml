@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  push:
+    branches-ignore:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  lint:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Ruff Lint
+        run: ruff check src/
+
+      - name: Ruff Format
+        run: ruff format --check src/
+
+  validate-config:
+    name: Validate Config
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    needs: lint
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install pyyaml omegaconf
+
+      - name: Validate configs
+        run: |
+          python - <<EOF
+          from pathlib import Path
+          from omegaconf import OmegaConf
+          import yaml
+
+          OmegaConf.load("config/base.yaml")
+
+          for f in Path("config/env").glob("*.yaml"):
+              OmegaConf.load(f)
+
+          for f in Path("config/tenants").glob("*.yaml"):
+              with open(f) as fp:
+                  yaml.safe_load(fp)
+
+          print("✅ All configuration files are valid.")
+          EOF
+
+  tests:
+    name: Unit Tests
+    if: github.event_name == 'pull_request'
+    needs:
+      - lint
+      - validate-config
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run tests
+        run: |
+          pytest tests/ -v --tb=short
