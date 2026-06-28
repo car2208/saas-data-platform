@@ -47,6 +47,7 @@ def main(env, tenant, start_date, end_date, layer):
 
     from saas_pipeline.bronze import run_bronze
     from saas_pipeline.gold import run_gold
+    from saas_pipeline.quality import run_quality_checks
     from saas_pipeline.silver import run_silver
     from saas_pipeline.spark import get_spark
 
@@ -61,6 +62,7 @@ def main(env, tenant, start_date, end_date, layer):
 
             if layer in ("all", "silver"):
                 run_silver(spark, config, tenant_id, run_id)
+                run_quality_checks(spark, config, tenant_id, run_id)
 
             if layer in ("all", "gold"):
                 run_gold(spark, config, tenant_id, run_id)

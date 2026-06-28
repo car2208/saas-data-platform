@@ -77,6 +77,9 @@ def _ingest_deliveries(
         .save(output_path)
     )
 
+    from saas_pipeline.spark import register_table
+
+    register_table(spark, f"bronze_{tenant_id}", "deliveries", output_path)
     logger.info(f"[Bronze] deliveries: wrote {df.count()} rows to {output_path}")
 
 
@@ -105,4 +108,7 @@ def _ingest_materials(
 
     df.write.format("delta").mode("overwrite").save(output_path)
 
+    from saas_pipeline.spark import register_table
+
+    register_table(spark, f"bronze_{tenant_id}", "materials", output_path)
     logger.info(f"[Bronze] materials: wrote {df.count()} rows to {output_path}")
