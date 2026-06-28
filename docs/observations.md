@@ -87,4 +87,18 @@ python -m saas_pipeline.cli --env dev --tenant sv --layer gold
 
 ---
 
+## 4. Catálogo de materiales debe pasar por Bronze antes de Silver
+
+**Situación:** El diagrama de arquitectura (sección 5.10) muestra únicamente `deliveries` en la capa Bronze, mientras que `dim_materials` aparece directamente en Silver. Esto sugiere que el catálogo de materiales se carga desde el CSV crudo directamente a Silver, saltando la capa Bronze.
+
+**Observación:** En una arquitectura Medallion estricta, toda fuente de datos debe pasar por Bronze como punto de ingesta inicial, independientemente de si es transaccional o dimensional. Saltarse Bronze para el catálogo de materiales presenta las siguientes desventajas:
+
+- Se pierde trazabilidad del dato crudo original (columnas técnicas como `_ingestion_timestamp`, `_batch_id`).
+- No se tiene un punto de reproceso intermedio: si la lógica SCD2 en Silver tiene un error, no hay una copia fiel del CSV original en formato Delta para reprocesar.
+- Se rompe la consistencia del patrón Medallion, donde cada capa lee exclusivamente de la inmediata anterior.
+
+**Resolución en esta implementación:** Se decidió ingestar el catálogo de materiales en Bronze (`data/bronze/<tenant>/materials/`) preservando el esquema original y las columnas técnicas estándar. Desde Silver, `dim_materials` lee de Bronze (no del CSV crudo) y aplica la lógica SCD Type 2. Esto mantiene la consistencia del flujo RAW → Bronze → Silver en ambas fuentes de datos.
+
+---
+
 *Este documento se irá ampliando con observaciones adicionales durante la implementación.*

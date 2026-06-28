@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime
 
 from pyspark.sql import SparkSession
 import pyspark.sql.functions as F
@@ -17,6 +16,7 @@ def run_bronze(spark: SparkSession, config: DictConfig, tenant_id: str, run_id: 
     end_date = config.execution.end_date.replace("-", "")
 
     _ingest_deliveries(spark, raw_path, bronze_base, tenant_id, run_id, start_date, end_date)
+    _ingest_materials(spark, raw_path, bronze_base, tenant_id, run_id)
     logger.info(f"[Bronze] tenant={tenant_id} done")
 
 
@@ -77,4 +77,32 @@ def _ingest_deliveries(
         .save(output_path)
     )
 
-    logger.info(f"[Bronze] Wrote {df.count()} rows to {output_path}")
+    logger.info(f"[Bronze] deliveries: wrote {df.count()} rows to {output_path}")
+
+
+def _ingest_materials(
+    spark: SparkSession,
+    raw_path: str,
+    bronze_base: str,
+    tenant_id: str,
+    run_id: str,
+) -> None:
+    csv_path = f"{raw_path}/materials_catalog.csv"
+    df = spark.read.option("header", "true").option("inferSchema", "true").csv(csv_path)
+
+    batch_id = f"{run_id}_{tenant_id}"
+    df = (
+        df.withColumn("_ingestion_timestamp", F.current_timestamp())
+        .withColumn("_source_file", F.input_file_name())
+        .withColumn("_tenant_id", F.lit(tenant_id))
+        .withColumn("_batch_id", F.lit(batch_id))
+    )
+
+    original_cols = [c for c in df.columns if not c.startswith("_")]
+    df = df.dropDuplicates(original_cols)
+
+    output_path = f"{bronze_base}/{tenant_id}/materials"
+
+    df.write.format("delta").mode("overwrite").save(output_path)
+
+    logger.info(f"[Bronze] materials: wrote {df.count()} rows to {output_path}")
