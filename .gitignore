@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Pipeline output data (generated at runtime)
+data/
+!data/raw/
+!data/raw/**
