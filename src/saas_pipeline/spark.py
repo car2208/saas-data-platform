@@ -1,8 +1,9 @@
+from delta import configure_spark_with_delta_pip
 from pyspark.sql import SparkSession
 
 
 def get_spark() -> SparkSession:
-    return (
+    builder = (
         SparkSession.builder.appName("saas-data-platform")
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
         .config(
@@ -10,5 +11,5 @@ def get_spark() -> SparkSession:
             "org.apache.spark.sql.delta.catalog.DeltaCatalog",
         )
         .config("spark.sql.session.timeZone", "UTC")
-        .getOrCreate()
     )
+    return configure_spark_with_delta_pip(builder).getOrCreate()

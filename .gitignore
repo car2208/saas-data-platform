@@ -219,5 +219,3 @@ __marimo__/
 
 # Pipeline output data (generated at runtime)
 data/
-!data/raw/
-!data/raw/**
