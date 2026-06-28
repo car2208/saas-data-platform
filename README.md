@@ -116,3 +116,4 @@ ruff format --check src/
 - **Terraform funcional:** Se incluye un snippet ilustrativo en `docs/infra.md`, no un módulo ejecutable. El examen no lo requiere.
 - **Dashboard:** No implementado por priorización de tiempo. El foco se centró en pipeline funcional con calidad de datos.
 - **Pre-commit hooks:** No implementados. El CI con GitHub Actions cubre lint y tests.
+- **Naming de 3 niveles en catálogo (`saas_<env>.bronze_<tenant>.<table>`):** Localmente Spark solo soporta 2 niveles (`schema.table`). El tercer nivel (catálogo `saas_<env>`) es un recurso de Unity Catalog que se provisiona con Terraform en Databricks. Las tablas se registran como `bronze_<tenant>.<table>` localmente y se mapearían al catálogo completo en producción.

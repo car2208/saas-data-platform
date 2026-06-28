@@ -1,8 +1,8 @@
 import logging
 
+import pyspark.sql.functions as F
 from omegaconf import DictConfig
 from pyspark.sql import SparkSession
-import pyspark.sql.functions as F
 
 logger = logging.getLogger("saas_pipeline.gold")
 

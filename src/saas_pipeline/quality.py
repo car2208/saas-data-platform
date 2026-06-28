@@ -1,11 +1,9 @@
 import logging
-import uuid
 from datetime import datetime
 
-from delta.tables import DeltaTable
+import pyspark.sql.functions as F
 from omegaconf import DictConfig
 from pyspark.sql import SparkSession
-import pyspark.sql.functions as F
 from pyspark.sql.types import (
     BooleanType,
     LongType,

@@ -1,9 +1,9 @@
 import logging
 
+import pyspark.sql.functions as F
 from delta.tables import DeltaTable
 from omegaconf import DictConfig
-from pyspark.sql import DataFrame, SparkSession
-import pyspark.sql.functions as F
+from pyspark.sql import SparkSession
 
 logger = logging.getLogger("saas_pipeline.silver")
 
