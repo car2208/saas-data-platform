@@ -64,4 +64,27 @@ Con este enfoque, agregar una nueva tabla al pipeline consiste en crear un archi
 
 ---
 
+## 3. Parámetro --layer para ejecuciones parciales del pipeline
+
+**Situación:** La arquitectura define un flujo secuencial Bronze → Silver → Gold que se ejecuta completo en cada corrida. No se contempla un mecanismo para ejecutar capas de forma independiente.
+
+**Observación:** En operaciones de producción es común necesitar reprocesar una capa específica sin re-ejecutar todo el pipeline. Escenarios frecuentes incluyen: recomputar Gold tras un cambio en la lógica de agregación, re-ejecutar Silver después de corregir reglas de calidad, o reingestar Bronze ante la llegada de un archivo corregido desde la fuente.
+
+**Mejora implementada:** Se agregó el parámetro `--layer` al CLI con las opciones `all`, `bronze`, `silver` y `gold`. Esto permite ejecuciones selectivas:
+
+```bash
+# Pipeline completo (comportamiento por defecto)
+python -m saas_pipeline.cli --env dev --tenant sv
+
+# Solo reingestar Bronze
+python -m saas_pipeline.cli --env dev --tenant sv --layer bronze
+
+# Recomputar Gold sin tocar Bronze ni Silver
+python -m saas_pipeline.cli --env dev --tenant sv --layer gold
+```
+
+**Trade-off:** Ejecutar capas de forma aislada requiere que las capas anteriores ya existan (ej: no se puede correr Silver sin que Bronze haya escrito datos). No se implementó validación de dependencias entre capas; queda como mejora para una siguiente iteración.
+
+---
+
 *Este documento se irá ampliando con observaciones adicionales durante la implementación.*
