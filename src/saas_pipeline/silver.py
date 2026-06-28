@@ -141,15 +141,15 @@ def _process_fact_deliveries(
     # Unit normalization: CS -> ST (1 CS = 20 ST)
     df = df.withColumn(
         "cantidad_normalizada_st",
-        F.when(F.upper(F.col("unidad")) == "CS", F.col("cantidad") * 20)
-        .otherwise(F.col("cantidad")),
+        F.when(F.upper(F.col("unidad")) == "CS", F.col("cantidad") * 20).otherwise(
+            F.col("cantidad")
+        ),
     )
 
     # Delivery type flags
-    df = (
-        df.withColumn("is_routine_delivery", F.col("tipo_entrega").isin(["ZPRE", "ZVE1"]))
-        .withColumn("is_bonus_delivery", F.col("tipo_entrega").isin(["Z04", "Z05"]))
-    )
+    df = df.withColumn(
+        "is_routine_delivery", F.col("tipo_entrega").isin(["ZPRE", "ZVE1"])
+    ).withColumn("is_bonus_delivery", F.col("tipo_entrega").isin(["Z04", "Z05"]))
 
     # Temporal join with dim_materials (not just is_current)
     fecha_col = F.to_date(F.col("fecha_proceso").cast("string"), "yyyyMMdd")
@@ -178,9 +178,7 @@ def _process_fact_deliveries(
     output_path = f"{silver_base}/{tenant_id}/fact_deliveries"
 
     if DeltaTable.isDeltaTable(spark, output_path):
-        merge_condition = " AND ".join(
-            [f"target.{k} = source.{k}" for k in FACT_MERGE_KEYS]
-        )
+        merge_condition = " AND ".join([f"target.{k} = source.{k}" for k in FACT_MERGE_KEYS])
         delta_table = DeltaTable.forPath(spark, output_path)
         (
             delta_table.alias("target")

@@ -26,7 +26,6 @@ def _setup_logging(level: str) -> None:
 @click.option("--start-date", default=None, help="Fecha inicio YYYY-MM-DD")
 @click.option("--end-date", default=None, help="Fecha fin YYYY-MM-DD")
 @click.option("--layer", default="all", type=click.Choice(["all", "bronze", "silver", "gold"]))
-
 def main(env, tenant, start_date, end_date, layer):
     config = load_config(env)
 

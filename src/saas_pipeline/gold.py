@@ -27,14 +27,11 @@ def _build_daily_metrics_by_delivery_type(
     fact_path = f"{silver_base}/{tenant_id}/fact_deliveries"
     df = spark.read.format("delta").load(fact_path)
 
-    metrics = (
-        df.groupBy("_tenant_id", "fecha_proceso", "tipo_entrega")
-        .agg(
-            F.sum("cantidad_normalizada_st").alias("total_units"),
-            F.sum(F.col("cantidad_normalizada_st") * F.col("precio")).alias("total_revenue"),
-            F.countDistinct("ruta").alias("active_routes"),
-            F.countDistinct("transporte").alias("active_transports"),
-        )
+    metrics = df.groupBy("_tenant_id", "fecha_proceso", "tipo_entrega").agg(
+        F.sum("cantidad_normalizada_st").alias("total_units"),
+        F.sum(F.col("cantidad_normalizada_st") * F.col("precio")).alias("total_revenue"),
+        F.countDistinct("ruta").alias("active_routes"),
+        F.countDistinct("transporte").alias("active_transports"),
     )
 
     output_path = f"{gold_base}/{tenant_id}/daily_metrics_by_delivery_type"

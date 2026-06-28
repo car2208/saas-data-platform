@@ -25,6 +25,4 @@ def get_spark() -> SparkSession:
 def register_table(spark: SparkSession, schema: str, table: str, path: str) -> None:
     spark.sql(f"CREATE DATABASE IF NOT EXISTS {schema}")
     abs_path = os.path.abspath(path).replace("\\", "/")
-    spark.sql(
-        f"CREATE TABLE IF NOT EXISTS {schema}.{table} USING DELTA LOCATION '{abs_path}'"
-    )
+    spark.sql(f"CREATE TABLE IF NOT EXISTS {schema}.{table} USING DELTA LOCATION '{abs_path}'")

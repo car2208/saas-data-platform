@@ -36,9 +36,7 @@ def _ingest_deliveries(
     df = df.filter(F.lower(F.col("pais")) == tenant_id)
 
     # Filter by date range
-    df = df.filter(
-        (F.col("fecha_proceso") >= start_date) & (F.col("fecha_proceso") <= end_date)
-    )
+    df = df.filter((F.col("fecha_proceso") >= start_date) & (F.col("fecha_proceso") <= end_date))
 
     # Add technical columns
     batch_id = f"{run_id}_{tenant_id}"

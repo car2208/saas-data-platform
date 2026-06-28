@@ -15,19 +15,21 @@ from pyspark.sql.types import (
 
 logger = logging.getLogger("saas_pipeline.quality")
 
-QUALITY_LOG_SCHEMA = StructType([
-    StructField("_run_id", StringType()),
-    StructField("_batch_id", StringType()),
-    StructField("tenant_id", StringType()),
-    StructField("layer", StringType()),
-    StructField("table_name", StringType()),
-    StructField("check_name", StringType()),
-    StructField("check_severity", StringType()),
-    StructField("records_checked", LongType()),
-    StructField("records_failed", LongType()),
-    StructField("check_passed", BooleanType()),
-    StructField("executed_at", TimestampType()),
-])
+QUALITY_LOG_SCHEMA = StructType(
+    [
+        StructField("_run_id", StringType()),
+        StructField("_batch_id", StringType()),
+        StructField("tenant_id", StringType()),
+        StructField("layer", StringType()),
+        StructField("table_name", StringType()),
+        StructField("check_name", StringType()),
+        StructField("check_severity", StringType()),
+        StructField("records_checked", LongType()),
+        StructField("records_failed", LongType()),
+        StructField("check_passed", BooleanType()),
+        StructField("executed_at", TimestampType()),
+    ]
+)
 
 
 def _log_check(
@@ -43,19 +45,21 @@ def _log_check(
     failed: int,
 ) -> None:
     passed = failed == 0
-    row = [(
-        run_id,
-        f"{run_id}_{tenant_id}",
-        tenant_id,
-        layer,
-        table_name,
-        check_name,
-        severity,
-        total,
-        failed,
-        passed,
-        datetime.utcnow(),
-    )]
+    row = [
+        (
+            run_id,
+            f"{run_id}_{tenant_id}",
+            tenant_id,
+            layer,
+            table_name,
+            check_name,
+            severity,
+            total,
+            failed,
+            passed,
+            datetime.utcnow(),
+        )
+    ]
     from saas_pipeline.spark import register_table
 
     df = spark.createDataFrame(row, QUALITY_LOG_SCHEMA)
@@ -80,9 +84,16 @@ def run_quality_checks(
     # Check 1: No null quantities after processing (critical)
     null_qty = df.filter(F.col("cantidad_normalizada_st").isNull()).count()
     _log_check(
-        spark, quality_logs_path, run_id, tenant_id,
-        "silver", "fact_deliveries", "not_null_cantidad_normalizada_st",
-        "critical", total, null_qty,
+        spark,
+        quality_logs_path,
+        run_id,
+        tenant_id,
+        "silver",
+        "fact_deliveries",
+        "not_null_cantidad_normalizada_st",
+        "critical",
+        total,
+        null_qty,
     )
     if null_qty > 0:
         has_critical_failure = True
@@ -90,38 +101,64 @@ def run_quality_checks(
     # Check 2: Revenue calculable - precio not null (critical)
     null_precio = df.filter(F.col("precio").isNull()).count()
     _log_check(
-        spark, quality_logs_path, run_id, tenant_id,
-        "silver", "fact_deliveries", "not_null_precio",
-        "critical", total, null_precio,
+        spark,
+        quality_logs_path,
+        run_id,
+        tenant_id,
+        "silver",
+        "fact_deliveries",
+        "not_null_precio",
+        "critical",
+        total,
+        null_precio,
     )
     if null_precio > 0:
         has_critical_failure = True
 
     # Check 3: All tipo_entrega values are valid (warning)
-    invalid_tipo = df.filter(
-        ~F.col("tipo_entrega").isin(["ZPRE", "ZVE1", "Z04", "Z05"])
-    ).count()
+    invalid_tipo = df.filter(~F.col("tipo_entrega").isin(["ZPRE", "ZVE1", "Z04", "Z05"])).count()
     _log_check(
-        spark, quality_logs_path, run_id, tenant_id,
-        "silver", "fact_deliveries", "valid_tipo_entrega",
-        "warning", total, invalid_tipo,
+        spark,
+        quality_logs_path,
+        run_id,
+        tenant_id,
+        "silver",
+        "fact_deliveries",
+        "valid_tipo_entrega",
+        "warning",
+        total,
+        invalid_tipo,
     )
 
     # Check 4: Temporal join enrichment - no null material_descripcion (warning)
     null_desc = df.filter(F.col("material_descripcion").isNull()).count()
     _log_check(
-        spark, quality_logs_path, run_id, tenant_id,
-        "silver", "fact_deliveries", "enrichment_completeness",
-        "warning", total, null_desc,
+        spark,
+        quality_logs_path,
+        run_id,
+        tenant_id,
+        "silver",
+        "fact_deliveries",
+        "enrichment_completeness",
+        "warning",
+        total,
+        null_desc,
     )
 
     # Check 5: No duplicate business keys (critical)
     merge_keys = ["_tenant_id", "fecha_proceso", "transporte", "ruta", "material", "tipo_entrega"]
     dup_count = total - df.dropDuplicates(merge_keys).count()
     _log_check(
-        spark, quality_logs_path, run_id, tenant_id,
-        "silver", "fact_deliveries", "no_duplicate_business_keys",
-        "critical", total, dup_count,
+        spark,
+        quality_logs_path,
+        run_id,
+        tenant_id,
+        "silver",
+        "fact_deliveries",
+        "no_duplicate_business_keys",
+        "critical",
+        total,
+        dup_count,
     )
     if dup_count > 0:
         has_critical_failure = True
