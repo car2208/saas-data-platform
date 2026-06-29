@@ -100,28 +100,7 @@ python -m saas_pipeline.cli --env dev --tenant sv --start-date 2025-03-01 --end-
 
 ## Ejecución en Databricks
 
-El código es compatible con Databricks Community / trial. Desde un notebook conectado a un cluster:
-
-```python
-import sys
-sys.path.append("/Workspace/Repos/<usuario>/saas-data-platform/src")
-
-from saas_pipeline.config import load_config, validate_config
-from saas_pipeline.bronze import run_bronze
-from saas_pipeline.silver import run_silver
-from saas_pipeline.quality import run_quality_checks
-from saas_pipeline.gold import run_gold
-
-config = load_config("dev")
-validate_config(config)
-
-run_bronze(spark, config, "sv", "databricks-run-001")
-run_silver(spark, config, "sv", "databricks-run-001")
-run_quality_checks(spark, config, "sv", "databricks-run-001")
-run_gold(spark, config, "sv", "databricks-run-001")
-```
-
-La variable `spark` ya existe como variable global en notebooks de Databricks. No es necesario crear una nueva sesión.
+La ejecución en Databricks requiere ajustar los paths relativos del config a rutas absolutas del workspace. Ver ejemplo en la sección correspondiente. En un ambiente productivo, los paths se configurarían en config/env/ apuntando a ADLS Gen2.
 
 ## Tests y linter
 
