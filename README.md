@@ -18,37 +18,50 @@ Plataforma de datos multi-tenant para procesamiento de entregas de producto, con
 
 ```
 saas-data-platform/
-├── .github/workflows/ci.yml          # GitHub Actions (lint, tests, config validation)
+├── .github/
+│   └── workflows/
+│       └── ci.yml                         # GitHub Actions (lint, tests, config validation)
 ├── config/
-│   ├── base.yaml                      # Configuración base compartida
+│   ├── base.yaml                          # Configuración base compartida
 │   ├── env/
-│   │   ├── dev.yaml                   # Paths locales, fail_on_critical=false
-│   │   ├── qa.yaml                    # Paths /mnt/data-qa, tenant=all
-│   │   └── main.yaml                  # Paths /mnt/data-prod, tenant=all
+│   │   ├── dev.yaml                       # Paths locales, fail_on_critical=false
+│   │   ├── qa.yaml                        # Paths /mnt/data-qa, tenant=all
+│   │   └── main.yaml                      # Paths /mnt/data-prod, tenant=all
 │   └── tenants/
-│       └── sv.yaml                    # Configuración tenant El Salvador
-├── data/                              # Generado al ejecutar (no versionado excepto raw/)
-│   ├── raw/                           # CSVs de entrada (versionados)
-│   ├── bronze/<tenant>/deliveries/    # Delta particionado por fecha_proceso
-│   ├── silver/<tenant>/fact_deliveries/
-│   ├── silver/<tenant>/dim_materials/
+│       └── sv.yaml                        # Configuración tenant El Salvador
+├── data/                                  # Generado al ejecutar (no versionado excepto raw/)
+│   ├── raw/                               # CSVs de entrada (versionados)
+│   ├── bronze/<tenant>/deliveries/        # Delta particionado por fecha_proceso
+│   ├── bronze/<tenant>/materials/         # Catálogo de materiales en Delta
+│   ├── silver/<tenant>/fact_deliveries/   # Hechos enriquecidos con SCD2
+│   ├── silver/<tenant>/dim_materials/     # Dimensión SCD Type 2
 │   ├── gold/<tenant>/daily_metrics_by_delivery_type/
-│   ├── silver_quarantine/<tenant>/    # Filas con anomalías
-│   └── shared/quality_logs/           # Logs de validación cross-tenant
-├── src/saas_pipeline/
-│   ├── cli.py                         # Punto de entrada CLI
-│   ├── config.py                      # Carga y validación de config
-│   ├── spark.py                       # Creación de SparkSession + Delta
-│   ├── bronze.py                      # Ingesta RAW → Delta
-│   ├── silver.py                      # Transformaciones, SCD2, cuarentena
-│   ├── gold.py                        # Agregaciones y métricas
-│   └── quality.py                     # Validaciones y quality_logs
+│   ├── silver_quarantine/<tenant>/        # Filas con anomalías
+│   └── shared/quality_logs/               # Logs de validación cross-tenant
+├── src/
+│   └── saas_pipeline/
+│       ├── __init__.py
+│       ├── cli.py                         # Punto de entrada CLI
+│       ├── config.py                      # Carga y validación de config
+│       ├── spark.py                       # Creación de SparkSession + Delta
+│       ├── bronze.py                      # Ingesta RAW → Delta
+│       ├── silver.py                      # Transformaciones, SCD2, cuarentena
+│       ├── gold.py                        # Agregaciones y métricas
+│       └── quality.py                     # Validaciones y quality_logs
 ├── tests/
+│   ├── conftest.py                        # Fixture de SparkSession para tests
+│   ├── test_silver_transforms.py          # Tests de transformaciones Silver
+│   └── test_quality.py                    # Tests de validaciones de calidad
 ├── mentoring/
+│   ├── bad_code.py                        # Código original del junior (Anexo A)
+│   ├── good_code.py                       # Versión refactorizada
+│   └── code_review.md                     # Observaciones y feedback
 ├── docs/
-│   ├── observations.md                # Observaciones a la arquitectura
-│   └── infra.md                       # Terraform snippet
-└── pyproject.toml
+│   ├── observations.md                    # Observaciones a la arquitectura (4 observaciones)
+│   ├── infra.md                           # Terraform snippet para onboarding
+│   └── onboarding-tenant.md              # Guía de onboarding de tenants
+├── pyproject.toml                         # Dependencias y configuración del proyecto
+└── .gitignore
 ```
 
 ## Requisitos previos
@@ -85,6 +98,31 @@ python -m saas_pipeline.cli --env dev --tenant all
 python -m saas_pipeline.cli --env dev --tenant sv --start-date 2025-03-01 --end-date 2025-03-31
 ```
 
+## Ejecución en Databricks
+
+El código es compatible con Databricks Community / trial. Desde un notebook conectado a un cluster:
+
+```python
+import sys
+sys.path.append("/Workspace/Repos/<usuario>/saas-data-platform/src")
+
+from saas_pipeline.config import load_config, validate_config
+from saas_pipeline.bronze import run_bronze
+from saas_pipeline.silver import run_silver
+from saas_pipeline.quality import run_quality_checks
+from saas_pipeline.gold import run_gold
+
+config = load_config("dev")
+validate_config(config)
+
+run_bronze(spark, config, "sv", "databricks-run-001")
+run_silver(spark, config, "sv", "databricks-run-001")
+run_quality_checks(spark, config, "sv", "databricks-run-001")
+run_gold(spark, config, "sv", "databricks-run-001")
+```
+
+La variable `spark` ya existe como variable global en notebooks de Databricks. No es necesario crear una nueva sesión.
+
 ## Tests y linter
 
 ```bash
@@ -103,17 +141,19 @@ ruff format --check src/
    tenant_id: "hn"
    tenant_name: "Honduras"
    ```
-2. Colocar los datos del tenant en `data/raw/` (el CSV debe incluir filas con `pais=HN`).
+2. Verificar que los datos del tenant estén disponibles en la capa RAW.
 3. Ejecutar el pipeline:
    ```bash
    python -m saas_pipeline.cli --env dev --tenant hn
    ```
 4. El pipeline crea automáticamente la estructura de carpetas para el nuevo tenant en bronze, silver y gold.
 
+Para más detalle ver `docs/onboarding-tenant.md`.
+
 ## Qué dejé fuera y por qué
 
 - **Auto Loader / streaming:** La arquitectura lo contempla pero no es parte del alcance de implementación. Se simula con lectura batch de CSV.
-- **Terraform funcional:** Se incluye un snippet ilustrativo en `docs/infra.md`, no un módulo ejecutable. El examen no lo requiere.
+- **Terraform funcional:** Se incluye un snippet ilustrativo en `docs/infra.md`, no un módulo ejecutable.
 - **Dashboard:** No implementado por priorización de tiempo. El foco se centró en pipeline funcional con calidad de datos.
 - **Pre-commit hooks:** No implementados. El CI con GitHub Actions cubre lint y tests.
 - **Naming de 3 niveles en catálogo (`saas_<env>.bronze_<tenant>.<table>`):** Localmente Spark solo soporta 2 niveles (`schema.table`). El tercer nivel (catálogo `saas_<env>`) es un recurso de Unity Catalog que se provisiona con Terraform en Databricks. Las tablas se registran como `bronze_<tenant>.<table>` localmente y se mapearían al catálogo completo en producción.
