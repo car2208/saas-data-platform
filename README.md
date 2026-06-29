@@ -100,7 +100,7 @@ python -m saas_pipeline.cli --env dev --tenant sv --start-date 2025-03-01 --end-
 
 ## Ejecución en Databricks
 
-La ejecución en Databricks requiere ajustar los paths relativos del config a rutas absolutas del workspace. Ver ejemplo en la sección correspondiente. En un ambiente productivo, los paths se configurarían en config/env/ apuntando a ADLS Gen2.
+La ejecución en Databricks requiere ajustar los paths relativos del config a rutas absolutas del workspace. En un ambiente productivo, los paths se configurarían en config/env/ apuntando a ADLS Gen2.
 
 ## Tests y linter
 
