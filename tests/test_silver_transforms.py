@@ -1,6 +1,12 @@
 import pyspark.sql.functions as F
 from pyspark.sql import Row
 
+from saas_pipeline.silver import (
+    add_delivery_flags,
+    filter_valid_delivery_types,
+    normalize_units,
+)
+
 
 def test_unit_normalization_cs_to_st(spark):
     data = [
@@ -9,15 +15,11 @@ def test_unit_normalization_cs_to_st(spark):
         Row(unidad="cs", cantidad=1.0),
     ]
     df = spark.createDataFrame(data)
-    df = df.withColumn(
-        "cantidad_normalizada_st",
-        F.when(F.upper(F.col("unidad")) == "CS", F.col("cantidad") * 20)
-        .otherwise(F.col("cantidad")),
-    )
-    results = {row.unidad: row.cantidad_normalizada_st for row in df.collect()}
-    assert results["CS"] == 40.0
-    assert results["ST"] == 10.0
-    assert results["cs"] == 20.0
+    result = normalize_units(df)
+    rows = {row.unidad: row.cantidad_normalizada_st for row in result.collect()}
+    assert rows["CS"] == 40.0
+    assert rows["ST"] == 10.0
+    assert rows["cs"] == 20.0
 
 
 def test_delivery_type_filter(spark):
@@ -29,10 +31,9 @@ def test_delivery_type_filter(spark):
         Row(tipo_entrega="COBR"),
         Row(tipo_entrega="Z99"),
     ]
-    valid_types = ["ZPRE", "ZVE1", "Z04", "Z05"]
     df = spark.createDataFrame(data)
-    filtered = df.filter(F.upper(F.col("tipo_entrega")).isin(valid_types))
-    assert filtered.count() == 4
+    result = filter_valid_delivery_types(df)
+    assert result.count() == 4
 
 
 def test_delivery_type_flags(spark):
@@ -43,11 +44,8 @@ def test_delivery_type_flags(spark):
         Row(tipo_entrega="Z05"),
     ]
     df = spark.createDataFrame(data)
-    df = (
-        df.withColumn("is_routine_delivery", F.col("tipo_entrega").isin(["ZPRE", "ZVE1"]))
-        .withColumn("is_bonus_delivery", F.col("tipo_entrega").isin(["Z04", "Z05"]))
-    )
-    rows = {row.tipo_entrega: row for row in df.collect()}
+    result = add_delivery_flags(df)
+    rows = {row.tipo_entrega: row for row in result.collect()}
     assert rows["ZPRE"].is_routine_delivery is True
     assert rows["ZPRE"].is_bonus_delivery is False
     assert rows["Z04"].is_routine_delivery is False

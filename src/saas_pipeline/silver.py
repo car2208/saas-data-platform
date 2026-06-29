@@ -3,7 +3,7 @@ import logging
 import pyspark.sql.functions as F
 from delta.tables import DeltaTable
 from omegaconf import DictConfig
-from pyspark.sql import SparkSession
+from pyspark.sql import DataFrame, SparkSession
 
 logger = logging.getLogger("saas_pipeline.silver")
 
@@ -72,6 +72,29 @@ def _process_dim_materials(
     logger.info(f"[Silver] dim_materials written to {output_path}")
 
 
+def filter_valid_delivery_types(df: DataFrame) -> DataFrame:
+    return (
+        df.filter(F.upper(F.col("tipo_entrega")).isin(VALID_DELIVERY_TYPES))
+        .withColumn("tipo_entrega", F.upper(F.col("tipo_entrega")))
+    )
+
+
+def normalize_units(df: DataFrame) -> DataFrame:
+    return df.withColumn(
+        "cantidad_normalizada_st",
+        F.when(F.upper(F.col("unidad")) == "CS", F.col("cantidad") * 20)
+        .otherwise(F.col("cantidad")),
+    )
+
+
+def add_delivery_flags(df: DataFrame) -> DataFrame:
+    return df.select(
+        "*",
+        F.col("tipo_entrega").isin(["ZPRE", "ZVE1"]).alias("is_routine_delivery"),
+        F.col("tipo_entrega").isin(["Z04", "Z05"]).alias("is_bonus_delivery"),
+    )
+
+
 def _process_fact_deliveries(
     spark: SparkSession,
     bronze_base: str,
@@ -132,24 +155,10 @@ def _process_fact_deliveries(
         all_quarantine.write.format("delta").mode("append").save(quarantine_path)
         logger.info(f"[Silver] Quarantined {all_quarantine.count()} rows")
 
-    # 5. Discard invalid tipo_entrega
-    df = df.filter(F.upper(F.col("tipo_entrega")).isin(VALID_DELIVERY_TYPES))
-    df = df.withColumn("tipo_entrega", F.upper(F.col("tipo_entrega")))
-
-    # --- Transformations ---
-
-    # Unit normalization: CS -> ST (1 CS = 20 ST)
-    df = df.withColumn(
-        "cantidad_normalizada_st",
-        F.when(F.upper(F.col("unidad")) == "CS", F.col("cantidad") * 20).otherwise(
-            F.col("cantidad")
-        ),
-    )
-
-    # Delivery type flags
-    df = df.withColumn(
-        "is_routine_delivery", F.col("tipo_entrega").isin(["ZPRE", "ZVE1"])
-    ).withColumn("is_bonus_delivery", F.col("tipo_entrega").isin(["Z04", "Z05"]))
+    # 5. Discard invalid tipo_entrega + transformations
+    df = filter_valid_delivery_types(df)
+    df = normalize_units(df)
+    df = add_delivery_flags(df)
 
     # Temporal join with dim_materials (not just is_current)
     fecha_col = F.to_date(F.col("fecha_proceso").cast("string"), "yyyyMMdd")

@@ -3,7 +3,7 @@ from datetime import datetime
 
 import pyspark.sql.functions as F
 from omegaconf import DictConfig
-from pyspark.sql import SparkSession
+from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.types import (
     BooleanType,
     LongType,
@@ -70,6 +70,23 @@ def _log_check(
     logger.info(f"[Quality] {check_name}: {status} ({failed}/{total} failed)")
 
 
+def check_not_null(df: DataFrame, column: str) -> int:
+    return df.filter(F.col(column).isNull()).count()
+
+
+def check_valid_values(df: DataFrame, column: str, valid_values: list) -> int:
+    return df.filter(~F.col(column).isin(valid_values)).count()
+
+
+def check_duplicate_keys(df: DataFrame, keys: list) -> int:
+    return df.count() - df.dropDuplicates(keys).count()
+
+
+FACT_MERGE_KEYS = [
+    "_tenant_id", "fecha_proceso", "transporte", "ruta", "material", "tipo_entrega",
+]
+
+
 def run_quality_checks(
     spark: SparkSession, config: DictConfig, tenant_id: str, run_id: str
 ) -> bool:
@@ -81,87 +98,26 @@ def run_quality_checks(
     has_critical_failure = False
     total = df.count()
 
-    # Check 1: No null quantities after processing (critical)
-    null_qty = df.filter(F.col("cantidad_normalizada_st").isNull()).count()
-    _log_check(
-        spark,
-        quality_logs_path,
-        run_id,
-        tenant_id,
-        "silver",
-        "fact_deliveries",
-        "not_null_cantidad_normalizada_st",
-        "critical",
-        total,
-        null_qty,
-    )
-    if null_qty > 0:
-        has_critical_failure = True
+    checks = [
+        ("not_null_cantidad_normalizada_st", "critical",
+         check_not_null(df, "cantidad_normalizada_st")),
+        ("not_null_precio", "critical",
+         check_not_null(df, "precio")),
+        ("valid_tipo_entrega", "warning",
+         check_valid_values(df, "tipo_entrega", ["ZPRE", "ZVE1", "Z04", "Z05"])),
+        ("enrichment_completeness", "warning",
+         check_not_null(df, "material_descripcion")),
+        ("no_duplicate_business_keys", "critical",
+         check_duplicate_keys(df, FACT_MERGE_KEYS)),
+    ]
 
-    # Check 2: Revenue calculable - precio not null (critical)
-    null_precio = df.filter(F.col("precio").isNull()).count()
-    _log_check(
-        spark,
-        quality_logs_path,
-        run_id,
-        tenant_id,
-        "silver",
-        "fact_deliveries",
-        "not_null_precio",
-        "critical",
-        total,
-        null_precio,
-    )
-    if null_precio > 0:
-        has_critical_failure = True
-
-    # Check 3: All tipo_entrega values are valid (warning)
-    invalid_tipo = df.filter(~F.col("tipo_entrega").isin(["ZPRE", "ZVE1", "Z04", "Z05"])).count()
-    _log_check(
-        spark,
-        quality_logs_path,
-        run_id,
-        tenant_id,
-        "silver",
-        "fact_deliveries",
-        "valid_tipo_entrega",
-        "warning",
-        total,
-        invalid_tipo,
-    )
-
-    # Check 4: Temporal join enrichment - no null material_descripcion (warning)
-    null_desc = df.filter(F.col("material_descripcion").isNull()).count()
-    _log_check(
-        spark,
-        quality_logs_path,
-        run_id,
-        tenant_id,
-        "silver",
-        "fact_deliveries",
-        "enrichment_completeness",
-        "warning",
-        total,
-        null_desc,
-    )
-
-    # Check 5: No duplicate business keys (critical)
-    merge_keys = ["_tenant_id", "fecha_proceso", "transporte", "ruta", "material", "tipo_entrega"]
-    dup_count = total - df.dropDuplicates(merge_keys).count()
-    _log_check(
-        spark,
-        quality_logs_path,
-        run_id,
-        tenant_id,
-        "silver",
-        "fact_deliveries",
-        "no_duplicate_business_keys",
-        "critical",
-        total,
-        dup_count,
-    )
-    if dup_count > 0:
-        has_critical_failure = True
+    for check_name, severity, failed in checks:
+        _log_check(
+            spark, quality_logs_path, run_id, tenant_id,
+            "silver", "fact_deliveries", check_name, severity, total, failed,
+        )
+        if failed > 0 and severity == "critical":
+            has_critical_failure = True
 
     if has_critical_failure and config.quality.get("fail_on_critical", False):
         raise RuntimeError(
