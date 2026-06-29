@@ -1,0 +1,16 @@
+environment: qa
+
+paths:
+  raw: "/mnt/data-qa/raw"
+  bronze: "/mnt/data-qa/bronze"
+  silver: "/mnt/data-qa/silver"
+  gold: "/mnt/data-qa/gold"
+  quarantine_root: "/mnt/data-qa"
+  quality_logs: "/mnt/data-qa/shared/quality_logs"
+
+execution:
+  tenant: "all"
+  fail_fast: true
+
+quality:
+  fail_on_critical: true
