@@ -83,7 +83,12 @@ def check_duplicate_keys(df: DataFrame, keys: list) -> int:
 
 
 FACT_MERGE_KEYS = [
-    "_tenant_id", "fecha_proceso", "transporte", "ruta", "material", "tipo_entrega",
+    "_tenant_id",
+    "fecha_proceso",
+    "transporte",
+    "ruta",
+    "material",
+    "tipo_entrega",
 ]
 
 
@@ -99,22 +104,33 @@ def run_quality_checks(
     total = df.count()
 
     checks = [
-        ("not_null_cantidad_normalizada_st", "critical",
-         check_not_null(df, "cantidad_normalizada_st")),
-        ("not_null_precio", "critical",
-         check_not_null(df, "precio")),
-        ("valid_tipo_entrega", "warning",
-         check_valid_values(df, "tipo_entrega", ["ZPRE", "ZVE1", "Z04", "Z05"])),
-        ("enrichment_completeness", "warning",
-         check_not_null(df, "material_descripcion")),
-        ("no_duplicate_business_keys", "critical",
-         check_duplicate_keys(df, FACT_MERGE_KEYS)),
+        (
+            "not_null_cantidad_normalizada_st",
+            "critical",
+            check_not_null(df, "cantidad_normalizada_st"),
+        ),
+        ("not_null_precio", "critical", check_not_null(df, "precio")),
+        (
+            "valid_tipo_entrega",
+            "warning",
+            check_valid_values(df, "tipo_entrega", ["ZPRE", "ZVE1", "Z04", "Z05"]),
+        ),
+        ("enrichment_completeness", "warning", check_not_null(df, "material_descripcion")),
+        ("no_duplicate_business_keys", "critical", check_duplicate_keys(df, FACT_MERGE_KEYS)),
     ]
 
     for check_name, severity, failed in checks:
         _log_check(
-            spark, quality_logs_path, run_id, tenant_id,
-            "silver", "fact_deliveries", check_name, severity, total, failed,
+            spark,
+            quality_logs_path,
+            run_id,
+            tenant_id,
+            "silver",
+            "fact_deliveries",
+            check_name,
+            severity,
+            total,
+            failed,
         )
         if failed > 0 and severity == "critical":
             has_critical_failure = True

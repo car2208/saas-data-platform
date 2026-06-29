@@ -73,17 +73,17 @@ def _process_dim_materials(
 
 
 def filter_valid_delivery_types(df: DataFrame) -> DataFrame:
-    return (
-        df.filter(F.upper(F.col("tipo_entrega")).isin(VALID_DELIVERY_TYPES))
-        .withColumn("tipo_entrega", F.upper(F.col("tipo_entrega")))
+    return df.filter(F.upper(F.col("tipo_entrega")).isin(VALID_DELIVERY_TYPES)).withColumn(
+        "tipo_entrega", F.upper(F.col("tipo_entrega"))
     )
 
 
 def normalize_units(df: DataFrame) -> DataFrame:
     return df.withColumn(
         "cantidad_normalizada_st",
-        F.when(F.upper(F.col("unidad")) == "CS", F.col("cantidad") * 20)
-        .otherwise(F.col("cantidad")),
+        F.when(F.upper(F.col("unidad")) == "CS", F.col("cantidad") * 20).otherwise(
+            F.col("cantidad")
+        ),
     )
 
 
